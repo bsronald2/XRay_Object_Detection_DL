@@ -2,18 +2,30 @@
 import click
 import logging
 from pathlib import Path
+
+import split_folders
 from dotenv import find_dotenv, load_dotenv
+from src.data.GDXray import GDXray
 
 
 @click.command()
-@click.argument('input_filepath', type=click.Path(exists=True))
-@click.argument('output_filepath', type=click.Path())
-def main(input_filepath, output_filepath):
+@click.argument('input_img_path', type=click.Path(exists=True))
+@click.argument('output_img_path', type=click.Path())
+def main(input_img_path, output_img_path):
     """ Runs data processing scripts to turn raw data from (../raw) into
         cleaned data ready to be analyzed (saved in ../processed).
     """
     logger = logging.getLogger(__name__)
-    logger.info('making final data set from raw data')
+    logger.info('Split Data into Train, Test and Validation')
+    input_data_dir = Path(input_img_path)
+    output_data_dir = Path(output_img_path)
+    # total_img = len(list(input_data_dir.glob("*/*.png")))
+    # logger.info(f'Total Number of images: {total_img}')
+    # TODO add condition to split dataset into train, val, test
+    # split_folders.ratio(raw_imagepath, output=output_filepath, seed=1337, ratio=(.8, .1, .1))  # default values
+
+    gdx = GDXray()
+    gdx.pre_process(input_dir=input_data_dir, output_dir=output_data_dir)
 
 
 if __name__ == '__main__':
