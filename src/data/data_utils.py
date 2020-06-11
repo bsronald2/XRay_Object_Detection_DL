@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+import os
+from pathlib import Path
 
 
 def prepare_ds(ds, cache=True, shuffle_buffer_size=2000, batch=32, buffer_size=-1):
@@ -29,9 +31,18 @@ def prepare_ds(ds, cache=True, shuffle_buffer_size=2000, batch=32, buffer_size=-
 
     return ds
 
+
 def show(image, label):
     plt.figure()
     plt.imshow(image)
     plt.title(label)
     plt.axis('off')
     plt.show()
+
+
+def create_dir(dir):
+    if Path.exists(dir):
+        for item_path in Path.iterdir(dir):
+            Path.unlink(item_path)
+    else:
+        os.makedirs(dir)

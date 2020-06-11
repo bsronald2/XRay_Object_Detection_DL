@@ -1,6 +1,6 @@
 import logging
 import tensorflow as tf
-from pathlib import Path
+from pathlib import Path, PurePath
 import os
 from src.data import data_utils
 from src.data.DataGenerator import DataGenerator
@@ -8,17 +8,13 @@ from src.data.DataGenerator import DataGenerator
 import numpy as np
 
 
-# To Create Synthetic dataset
-import imageio
-import imgaug as ia
-
-
 class GDXray:
     AUTOTUNE = tf.data.experimental.AUTOTUNE
     DIR = Path('data/raw')
-    IMG_HEIGHT = 128
-    IMG_WIDTH = 128
-    BATCH_SIZE = 64
+    IMG_HEIGHT = 256
+    IMG_WIDTH = 256
+    BATCH_SIZE = 32
+    BUFFER_SIZE = 3000
     tf.random.set_seed(1)
     np.random.seed(1)
 
@@ -35,15 +31,24 @@ class GDXray:
         # Logs
         logger.info(f'# test images:{len(list(self.ptest_dir.glob("*/*.png")))}')
         logger.info(f'# train images:{len(list(self.ptrain_dir.glob("*/*.png")))}')
+        # Data Augmentation arguments
+        self.data_gen_args = dict(rotation_range=45,
+                                  width_shift_range=0.33,
+                                  height_shift_range=0.33,
+                                  shear_range=0.2,
+                                  zoom_range=0.2,
+                                  horizontal_flip=True,
+                                  vertical_flip=True
+                                  )
 
     def load_dataset(self):
         """Return:
-         Iterators of train and test data-sets.
+         Bath tuple Iterators (img, label) of train and val data-sets.
         """
         train_ds = self.__load_batch(str(self.ptest_dir.absolute() / '*/*.png'))
-        test_ds = self.__load_batch(str(self.ptrain_dir.absolute() / '*/*.png'))
+        val_ds = self.__load_batch(str(self.ptrain_dir.absolute() / '*/*.png'))
 
-        return train_ds, test_ds
+        return train_ds, val_ds
 
     def __load_batch(self, dir, shuffle_buffer_size=2000):
         # Get datasets of all files matching one or more glob patterns.
@@ -59,15 +64,17 @@ class GDXray:
 
     def pre_process(self, input_dir, output_dir):
         """ Make..."""
-        p_raw_ds = self.__load_batch(str(input_dir / '*.png'), shuffle_buffer_size=3000)
+        p_raw_ds = self.__load_batch(str(input_dir / '*.png'), shuffle_buffer_size=GDXray.BUFFER_SIZE)
+        final_dir = PurePath(str(input_dir)).name
         data_generator = DataGenerator()
-        data_generator.generate_data_K(p_raw_ds, save_to_dir=output_dir)
+        # data_generator.generate_data_K(p_raw_ds, save_to_dir=output_dir, prefix=final_dir, data_gen=self.data_gen_args)
+        data_generator.generate_data_I(ds=p_raw_ds, save_to_dir=output_dir)
 
     def __get_label(self, file_path):
         # convert the path to a list of path components
         parts = tf.strings.split(file_path, os.path.sep)
-        # The second to last is the class-directory
 
+        # The second to last is the class-directory
         return parts[-2] == self.classes_name
 
     def __decode_img(self, img):

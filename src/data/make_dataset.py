@@ -11,21 +11,20 @@ from src.data.GDXray import GDXray
 @click.command()
 @click.argument('input_img_path', type=click.Path(exists=True))
 @click.argument('output_img_path', type=click.Path())
-def main(input_img_path, output_img_path):
+@click.option('--data-aug', is_flag=True, help="Create a synthetic data-set")
+def main(input_img_path, output_img_path, data_aug):
     """ Runs data processing scripts to turn raw data from (../raw) into
         cleaned data ready to be analyzed (saved in ../processed).
     """
     logger = logging.getLogger(__name__)
-    logger.info('Split Data into Train, Test and Validation')
     input_data_dir = Path(input_img_path)
     output_data_dir = Path(output_img_path)
-    # total_img = len(list(input_data_dir.glob("*/*.png")))
-    # logger.info(f'Total Number of images: {total_img}')
     # TODO add condition to split dataset into train, val, test
     # split_folders.ratio(raw_imagepath, output=output_filepath, seed=1337, ratio=(.8, .1, .1))  # default values
-
-    gdx = GDXray()
-    gdx.pre_process(input_dir=input_data_dir, output_dir=output_data_dir)
+    if data_aug is True:
+        logger.info('Create a synthetic data-set.')
+        gdx = GDXray()
+        gdx.pre_process(input_dir=input_data_dir, output_dir=output_data_dir)
 
 
 if __name__ == '__main__':
@@ -38,5 +37,4 @@ if __name__ == '__main__':
     # find .env automagically by walking up directories until it's found, then
     # load up the .env entries as environment variables
     load_dotenv(find_dotenv())
-
     main()
