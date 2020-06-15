@@ -83,7 +83,7 @@ class GDXray:
         # Use `convert_image_dtype` to convert to floats in the [0,1] range.
         img = tf.image.convert_image_dtype(img, tf.float32)
 
-        # resize the image to the desired size.
+        # resize the images to the desired size.
         return tf.image.resize(img, [GDXray.IMG_HEIGHT, GDXray.IMG_WIDTH])
 
     def __process_path(self, file_path):

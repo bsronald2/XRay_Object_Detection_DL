@@ -15,7 +15,7 @@ seq = iaa.Sequential([
         0.5,
         iaa.GaussianBlur(sigma=(0, 0.50))
     ),
-    # Strengthen or weaken the contrast in each image.
+    # Strengthen or weaken the contrast in each images.
     iaa.LinearContrast((0.75, 1)),
 
     # Add gaussian noise.
@@ -25,7 +25,7 @@ seq = iaa.Sequential([
     # pixels.
     iaa.AdditiveGaussianNoise(loc=0, scale=(0.0, 0.05), per_channel=0.3),
 
-    # Apply affine transformations to each image.
+    # Apply affine transformations to each images.
     # Scale/zoom them, translate/move them, rotate them and shear them.
     iaa.Affine(
         scale={"x": (0.8, 1.2), "y": (0.8, 1.2)},
@@ -38,7 +38,7 @@ seq = iaa.Sequential([
 
 class DataGenerator:
     """
-     Methods to create synthetic dataset.
+     Methods to create synthetic dataset to use for instance in a classification task.
     """
     def __init__(self):
         self.processed_dir = 'data/processed'
@@ -52,7 +52,7 @@ class DataGenerator:
             data_utils.create_dir(save_to_dir)
 
         img_gen = ImageDataGenerator(**data_gen)
-        # Create by default 5 new augmented pictures by each original image.
+        # Create by default 5 new augmented pictures by each original images.
         for img, _ in ds.as_numpy_iterator():
             img_flow = img_gen.flow(img, batch_size=32, save_to_dir=str(save_to_dir), save_prefix=prefix)
             [next(img_flow)[0].astype(np.uint8) for i in range(5)]

@@ -17,3 +17,5 @@ imgaug
 numpy
 python-dotenv>=0.5.1
 keras
+opencv-python
+opencv-contrib-python

@@ -46,3 +46,7 @@ def create_dir(dir):
             Path.unlink(item_path)
     else:
         os.makedirs(dir)
+
+
+def create_chunk(l, n):
+    return [l[i: i + n] for i in range(0, len(l), n)]
