@@ -35,24 +35,23 @@ seq = iaa.Sequential([
 
 class GDXrayDataGenerator(Sequence):
     # Generates data for Keras
-    def __init__(self, image_paths, ann_path, labels, n_classes, batch_size=32, dim=(256, 256, 3),
-                 shuffle=True, augment=False): # add synthetic param
+    def __init__(self, imgs_path, ann_path, labels, n_classes, batch_size=32, dim=(256, 256, 1),
+                 shuffle=True):
 
-        # Annotation image info
         self.ann_path = ann_path
+        self.set_ann_data()
         self.labels = labels
         self.dim = dim
         self.n_classes = n_classes
-        self.image_paths = image_paths
-        self.indexes = np.arange(len(self.image_paths)) # Do nothing for shuffle
+        self.images_path = imgs_path
+        self.indexes = np.arange(len(self.images_path)) # Do nothing for shuffle
         self.batch_size = batch_size
         self.shuffle = shuffle
-        self.augment = augment
         self.on_epoch_end()
 
     def __len__(self):
         # Denotes the number of batches per epoch
-        return int(np.floor(len(self.image_paths) / self.batch_size)) # Multiply by the size batch or remove batch
+        return int(np.floor(len(self.images_path))) # / self.batch_size)) # Multiply by the size batch or remove batch
 
     def __getitem__(self, index):
         # Generate indexes of the batch
@@ -66,20 +65,25 @@ class GDXrayDataGenerator(Sequence):
         # X, y = self.__data_generation(image_paths)
 
         index_aux = self.indexes[index]
-        img_path = self.image_paths[index_aux]
+        img_path = self.images_path[index_aux]
         X, y = self.__data_generation(img_path)
 
         return X, y
 
     def set_ann_data(self):
-        with open(self.ann_path, 'r') as read_it:
+        """
+        Open annotation file and
+        """
+        with open(str(self.ann_path), 'r') as read_it:
             ann_data = json.load(read_it)
         self.dict_imgs = ann_data.get('images')
         self.dict_ann = ann_data.get('annotations')
         self.dict_cat = ann_data.get('categories')
 
     def on_epoch_end(self):
-        # Updates indexes after each epoch
+        """
+        Updates indexes after each epoch
+        """
         if self.shuffle:
             np.random.shuffle(self.indexes)
 
@@ -88,7 +92,12 @@ class GDXrayDataGenerator(Sequence):
 
     def get_img_info(self, img_name):
         """
-        return img_label and segmentation points of the image as tuple
+        Iterate over json object to search segmentation points
+        and label of an specific image name.
+        Parameters:
+            img_name as string
+        Return:
+            img_label and segmentation points of as tuple
         """
         img_obj = self.__search_array(self.dict_imgs, 'file_name', img_name)
         if img_obj is not None:
@@ -97,20 +106,66 @@ class GDXrayDataGenerator(Sequence):
                 kps = self.__get_img_seg_kps(ann_obj['segmentation'])
                 label = self.__search_array(self.dict_cat, 'id', ann_obj['category_id'])
                 return label['name'], kps
-
+            else: # Create annotation for image
+                kps = self.__create_img_seg(img_obj)
+                return 'background', kps
         return None
 
+    def __create_img_seg(self, img_obj):
+        """
+        Create an key-points segmentation
+        for images without this info in the json file.
+        Parameters:
+            img_obj is json object with the following format
+            {
+                "id": 0,
+                "width": 1001,
+                "height": 709,
+                "file_name": "B0049_0007.png",
+                "license": 1,
+                "date_captured": ""
+            }
+        Return:
+            Keypoint list with all image background as a mask.
+        """
+        height = img_obj['height']
+        width = img_obj['width']
+        points = [
+            Keypoint(x=0, y=0),
+            Keypoint(x=width - 1, y=0),
+            Keypoint(x=width - 1, y=height - 1),
+            Keypoint(x=0, y=height - 1)
+        ]
+
+        return points
+
     def __get_img_seg_kps(self, img_seg):
+        """
+         Iterate every two steps due to json array with segmented
+         points are in the following way: [x1,y1,x2,y2,..,..,xn,yn]
+         Parameters:
+             img_seg an array with segmentation points
+         Return a list in the next format
+            [[x1, y1], [x2, y2],...,[xn, yn]]
+        """
         points = list()
-        # iterate every two steps due to json array with segmented
-        # points are in the following way: [x1,y1,x2,y2,..,..,xn,yn]
         for i in range(0, len(img_seg), 2):  # iterate every two steps
             chunk = img_seg[i:i + 2]
             points.append(Keypoint(x=chunk[0], y=chunk[1]))
 
         return points
 
-    def get_augimg(self, img, img_info):
+    def create_augimg(self, img, img_info):
+        """
+        Create an augmented image and key points.
+
+        Parameters
+            img: as numpy array
+            img_info: tuple with label and keypoints
+
+        Return
+            augmented image and keypoints
+        """
         label, points = img_info
         kps = KeypointsOnImage(points, shape=img.shape)
         if img.shape != self.dim:
@@ -124,6 +179,9 @@ class GDXrayDataGenerator(Sequence):
         return img_aug, aug_points_dic
 
     def get_mask(self, img, imgaug_shape):
+        """
+         Create a mask for an image
+        """
         blank = np.zeros(shape=(img.shape[0], img.shape[1]), dtype=np.float32)
         points = np.array(imgaug_shape['points'], dtype=np.int32)
         cv2.fillPoly(blank, [points], 255)
@@ -131,25 +189,25 @@ class GDXrayDataGenerator(Sequence):
 
         return np.expand_dims(blank, axis=2)
 
-    def get_poly(self, annot_path):
-        # reads in shape_dicts
-        with open(annot_path) as handle:
-            data = json.load(handle)
-        shape_dicts = data['shapes']
-
-        return shape_dicts
-
     def __data_generation(self, img_path):
+        """
+            Generate images augmented on the fly of the size of the batch.
+            Parameters:
+                img_path to generate batch
+            Return:
+                Batch of X and y
+        """
         X = np.empty((self.batch_size, *self.dim), dtype=np.float32)
         y = np.empty((self.batch_size, self.dim[0], self.dim[1], self.n_classes), dtype=np.float32)
 
-        # retrieve img as numpy
-        img = cv2.imread(str(img_path))  # our images are gray_scale
-        img = (img / 255.0).astype(np.float32)
-        images = [np.copy(img) for _ in range(self.batch_size)]
+        # retrieve img as numpy matrix
+        img = cv2.imread(str(img_path), 0)  # our images are gray_scale
+        img = np.expand_dims(img, axis=2)
+        # img = (img / 255.0).astype(np.float32) # Model input will transform
+        images = [np.copy(img) for _ in range(self.batch_size)] # generate batch for augmentation
         img_info = self.get_img_info(img_path.name)
         for i, image in enumerate(images):
-            imgaug, imgaug_shape = self.get_augimg(img, img_info)
+            imgaug, imgaug_shape = self.create_augimg(img, img_info)
             imgaug_mask = self.get_mask(imgaug, imgaug_shape)
             X[i,] = imgaug
             y[i,] = imgaug_mask
