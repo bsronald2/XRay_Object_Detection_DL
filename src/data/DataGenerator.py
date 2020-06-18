@@ -66,5 +66,5 @@ class DataGenerator:
         for imgs_batch, _ in ds.as_numpy_iterator():
             batches = UnnormalizedBatch(images=(imgs_batch*255).astype(np.uint8))
             images_aug = [next(seq.augment_batches(batches, background=True)).images_aug for i in range(5)]
-            [imageio.imwrite("%s/%s_%d_%d.png" % (str(save_to_dir),prefix, i, random.randint(0, 1000),), ia_j)
+            [imageio.imwrite("%s/%s_%d_%d.png" % (str(save_to_dir), prefix, i, random.randint(0, 1000),), ia_j)
              for i, images in enumerate(images_aug) for ia_j in images]
