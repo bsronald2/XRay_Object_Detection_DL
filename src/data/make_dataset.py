@@ -23,8 +23,8 @@ def main(input_img_path, output_img_path, data_aug):
     # split_folders.ratio(raw_imagepath, output=output_filepath, seed=1337, ratio=(.8, .1, .1))  # default values
     if data_aug is True:
         logger.info('Create a synthetic data-set.')
-        gdx = GDXray()
-        gdx.pre_process(input_dir=input_data_dir, output_dir=output_data_dir)
+        gdx = GDXray(input_data_dir)
+        gdx.pre_process(output_dir=output_data_dir)
 
 
 if __name__ == '__main__':

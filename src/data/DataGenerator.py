@@ -1,6 +1,6 @@
 from keras.preprocessing.image import ImageDataGenerator
 import numpy as np
-from src.data import data_utils
+from src.utils import create_dir
 import random
 # To Create Synthetic data-set
 import imageio
@@ -49,7 +49,7 @@ class DataGenerator:
         if save_to_dir is None:
             save_to_dir = self.processed_dir
         else:
-            data_utils.create_dir(save_to_dir)
+            create_dir(save_to_dir)
 
         img_gen = ImageDataGenerator(**data_gen)
         # Create by default 5 new augmented pictures by each original images.
@@ -62,7 +62,7 @@ class DataGenerator:
         Generates augmented images using ImgAug library class.
         The results are persisted in disc.
         """
-        data_utils.create_dir(save_to_dir)
+        create_dir(save_to_dir)
         for imgs_batch, _ in ds.as_numpy_iterator():
             batches = UnnormalizedBatch(images=(imgs_batch*255).astype(np.uint8))
             images_aug = [next(seq.augment_batches(batches, background=True)).images_aug for i in range(5)]
