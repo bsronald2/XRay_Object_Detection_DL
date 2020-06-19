@@ -4,7 +4,7 @@ from pathlib import Path
 from dotenv import find_dotenv, load_dotenv
 from src.utils import create_dir
 from src.models.Unet import Unet
-from src.config import dim, n_classes
+from src.config import dim, n_classes, n_filters
 from src.data.GDXray import GDXray
 import cv2
 import numpy as np
@@ -26,7 +26,7 @@ def main(input_img_path, output_pred_path, model_path, is_batch, model_type):
     # Create Directory if doesn't exits otherwise remove items inside it.
     create_dir(Path(output_pred_path))
     # Load model pre-trained
-    model = Unet(dim, n_classes, n_filters=16, pretrained_weights=model_path)
+    model = Unet(dim, n_classes, n_filters=n_filters, pretrained_weights=model_path)
     # collect images path
     gdx_ray = GDXray(input_img_path, train_val_ds=False)
     if is_batch:

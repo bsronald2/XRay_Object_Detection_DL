@@ -5,6 +5,7 @@ from dotenv import find_dotenv, load_dotenv
 from src.models.Unet import Unet
 from src.config import dim, n_classes, n_filters, labels, model_name, ann_file_name
 from src.data.GDXrayDataGenerator import GDXrayDataGenerator
+from src.utils import delete_file
 
 
 @click.command()
@@ -31,21 +32,26 @@ def main(input_img_path, ann_path, model_type):
     data_generator_val = GDXrayDataGenerator(imgs_path_val,
                                              ann_val_path, labels, n_classes, batch_size=16, dim=dim)
 
+    # Model Path
+    model_path = Path('models') / (model_name % model_type)
+    delete_file(model_path)
+
     # Set-up model selected TODO add if conditional to select model type
     model = Unet(dim, n_classes, n_filters)
     model.build()
-    model_checkpoint = model.checkpoint(model_name % model_type)
+    model_checkpoint = model.checkpoint(str(model_path))
 
     # Fit the model
     model.fit(
         x=data_generator_train,
         steps_per_epoch=len(data_generator_train),
         validation_data=data_generator_val,
-        epochs=6,
+        epochs=20,
         verbose=1,
         callbacks=[model_checkpoint]
     )
-    model.save_model(str(Path('models') / (model_name % model_type)))
+
+    model.save_model(str(model_path))
 
 
 if __name__ == '__main__':
