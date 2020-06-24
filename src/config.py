@@ -2,11 +2,11 @@ dim = (256, 256, 1)  # gray images
 SEED = 1
 
 # Labels/n_classes
-labels = ['gun']
+labels = sorted(['gun', 'knife'])
 # count background
-n_classes = len(labels)
+n_classes = len(labels) + 1 # background
 # number filters
-n_filters = 64
+n_filters = 24
 # model name
 model_name = '%s_model.hdf5'
 # annotation file name by default

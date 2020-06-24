@@ -26,7 +26,7 @@ class Unet(Model):
             self.last_act = 'sigmoid'
         else:
             self.loss = 'categorical_crossentropy'
-            self.final_act = 'softmax'
+            self.last_act = 'softmax'
 
         inputs = Input(self.input_dim)
         s = Lambda(lambda x: x / 255.)(inputs)

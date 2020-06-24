@@ -7,6 +7,7 @@ from imgaug import augmenters as iaa
 from tensorflow.keras.utils import Sequence
 from imgaug.augmentables import Keypoint, KeypointsOnImage
 
+
 seq = iaa.Sequential([
     iaa.Fliplr(0.5),  # horizontal flips
     # Small gaussian blur with random sigma between 0 and 0.5.
@@ -87,8 +88,11 @@ class GDXrayDataGenerator(Sequence):
         if self.shuffle:
             np.random.shuffle(self.indexes)
 
-    def __search_array(self, array, key, value):
+    def find_first(self, array, key, value):
         return next((obj for obj in array if obj[key] == value), None)  # return object
+
+    def find_all(self, array, key, value):
+        return [obj for obj in array if obj[key] == value]
 
     def get_img_info(self, img_name):
         """
@@ -99,16 +103,17 @@ class GDXrayDataGenerator(Sequence):
         Return:
             img_label and segmentation points of as tuple
         """
-        img_obj = self.__search_array(self.dict_imgs, 'file_name', img_name)
+        img_seg, label = None, None
+        img_obj = self.find_first(self.dict_imgs, 'file_name', img_name)
         if img_obj is not None:
-            ann_obj = self.__search_array(self.dict_ann, 'image_id', str(img_obj['id']))
-            if ann_obj is not None:
-                kps = self.__get_img_seg_kps(ann_obj['segmentation'])
-                label = self.__search_array(self.dict_cat, 'id', ann_obj['category_id'])
-                return label['name'], kps
-            else: # Create annotation for image
+            ann_objs = self.find_all(self.dict_ann, 'image_id', str(img_obj['id']))
+            if ann_objs:
+                kps_list = [self.__get_img_seg_kps(ann_obj['segmentation']) for ann_obj in ann_objs]
+                labels = [self.find_first(self.dict_cat, 'id', ann_obj['category_id'])['name'] for ann_obj in ann_objs]
+                return labels, kps_list  # return a list of KeyPoints list
+            else:
                 kps = self.__create_img_seg(img_obj)
-                return 'background', kps
+                return ['background'], [kps]
         return None
 
     def __create_img_seg(self, img_obj):
@@ -178,6 +183,39 @@ class GDXrayDataGenerator(Sequence):
 
         return img_aug, aug_points_dic
 
+    def create_multi_augimg(self, img, img_info):
+        labels, points_list = img_info
+        kps_merge = list()
+        shapes_dict = list()
+        index = 0
+        for label, key_points in zip(labels, points_list):
+            kps_merge += key_points
+            dict_aux = {}
+            dict_aux['label'] = label
+            dict_aux['index'] = (index, index + len(key_points))
+            shapes_dict.append(dict_aux)
+            index += len(key_points)
+
+        kps_merge = [point for key_points in points_list for point in key_points]
+        kps_oi = KeypointsOnImage(kps_merge, shape=img.shape)
+
+        # Resize image if shapes are not equals
+        if img.shape != self.dim:
+            img = ia.imresize_single_image(img, self.dim[0:2])
+            kps_oi = kps_oi.on(img)
+
+        # Augment keypoints and images.
+        seq_det = seq.to_deterministic()
+        img_aug = seq_det.augment_images([img])[0]
+        kps_aug = seq_det.augment_keypoints([kps_oi])[0]
+
+        # Add points to each dictionary
+        for shape in shapes_dict:
+            first, last = shape['index']
+            shape['points'] = [[kp.x, kp.y] for kp in kps_aug.keypoints[first:last]]
+
+        return img_aug, shapes_dict
+
     def get_mask(self, img, imgaug_shape):
         """
          Create a mask for an image
@@ -188,6 +226,34 @@ class GDXrayDataGenerator(Sequence):
         blank = blank / 255.0
 
         return np.expand_dims(blank, axis=2)
+
+    def create_multi_masks(self, im, shape_dicts):
+        channels = []
+        cls = [x['label'] for x in shape_dicts]
+        poly = [np.array(x['points'], dtype=np.int32) for x in shape_dicts]
+        label2poly = dict(zip(cls, poly))
+        background = np.zeros(shape=(im.shape[0], im.shape[1]), dtype=np.float32)
+        # iterate through objects of interest
+        for i, label in enumerate(self.labels):
+
+            blank = np.zeros(shape=(im.shape[0], im.shape[1]), dtype=np.float32)
+
+            if label in cls:
+                cv2.fillPoly(blank, [label2poly[label]], 255)
+                cv2.fillPoly(background, [label2poly[label]], 255)
+            channels.append(blank)
+
+        # handle an image where only background is present
+        if 'background' in cls:
+            background = np.zeros(shape=(im.shape[0], im.shape[1]), dtype=np.float32)
+            cv2.fillPoly(background, [label2poly['background']], 255)
+        else:
+            _, background = cv2.threshold(background, 127, 255, cv2.THRESH_BINARY_INV)
+        channels.append(background)
+
+        Y = np.stack(channels, axis=2) / 255.0
+
+        return Y
 
     def __data_generation(self, img_path):
         """
@@ -207,8 +273,14 @@ class GDXrayDataGenerator(Sequence):
         images = [np.copy(img) for _ in range(self.batch_size)] # generate batch for augmentation
         img_info = self.get_img_info(img_path.name)
         for i, image in enumerate(images):
-            imgaug, imgaug_shape = self.create_augimg(img, img_info)
-            imgaug_mask = self.get_mask(imgaug, imgaug_shape)
+            if self.n_classes == 1:
+                imgaug, imgaug_shape = self.create_augimg(img, img_info)
+                imgaug_mask = self.get_mask(imgaug, imgaug_shape)
+            elif self.n_classes > 1:
+                imgaug, imgaug_shape = self.create_multi_augimg(img, img_info)
+                imgaug_mask = self.create_multi_masks(imgaug, imgaug_shape)
+            else:
+                raise Exception(f'Number of classes should be equals or greater than 1: {self.n_classes}')
             X[i,] = imgaug
             y[i,] = imgaug_mask
 

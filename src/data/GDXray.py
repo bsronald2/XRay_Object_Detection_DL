@@ -129,3 +129,8 @@ class GDXray:
             return img, label
 
         return img
+
+test_imgs = '/home/ronald/PycharmProjects/x-ray-deep-learning/X-ray_Object_Detection/data/raw/multi/images/test'
+ds = GDXray(test_imgs, train_val_ds=False).load_dataset()
+for imgs_batch in ds.as_numpy_iterator():
+    print(imgs_batch.shape)
