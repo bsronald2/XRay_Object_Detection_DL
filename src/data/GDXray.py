@@ -10,8 +10,6 @@ from src.data.DataGenerator import DataGenerator
 class GDXray:
     AUTOTUNE = tf.data.experimental.AUTOTUNE
     DIR = Path('data/raw')
-    IMG_HEIGHT = dim[0]
-    IMG_WIDTH = dim[1]
     BATCH_SIZE = 16
     BUFFER_SIZE = 3000
 
@@ -60,7 +58,7 @@ class GDXray:
         # order as they appeared in the input.
         labeled_ds = list_ds.map(self.process_path, num_parallel_calls=GDXray.AUTOTUNE)
         prepared_ds = GDXray.prepare_ds(labeled_ds, buffer_size=GDXray.AUTOTUNE,
-                                            shuffle_buffer_size=shuffle_buffer_size)
+                                        shuffle_buffer_size=shuffle_buffer_size)
 
         return prepared_ds
 
@@ -115,7 +113,7 @@ class GDXray:
         # img = tf.image.convert_image_dtype(img, tf.float32) # model input will transform data.
 
         # resize the images to the desired size.
-        return tf.image.resize(img, [GDXray.IMG_HEIGHT, GDXray.IMG_WIDTH])
+        return tf.image.resize(img, [dim[0], dim[1]])
 
     def process_path(self, file_path):
         """
@@ -129,8 +127,3 @@ class GDXray:
             return img, label
 
         return img
-
-test_imgs = '/home/ronald/PycharmProjects/x-ray-deep-learning/X-ray_Object_Detection/data/raw/multi/images/test'
-ds = GDXray(test_imgs, train_val_ds=False).load_dataset()
-for imgs_batch in ds.as_numpy_iterator():
-    print(imgs_batch.shape)

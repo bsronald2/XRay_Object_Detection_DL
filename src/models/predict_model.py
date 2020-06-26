@@ -16,7 +16,7 @@ import imgaug as ia
 @click.argument('input_img_path', type=click.Path(exists=True))
 @click.argument('model_path', type=click.Path(exists=True))
 @click.argument('output_pred_path', type=click.Path())
-@click.option('--model-type', type=click.Choice(['unet'], case_sensitive=False))
+@click.option('--model-type', type=click.Choice(['unet', 'contours'], case_sensitive=False))
 @click.option('--is-batch', is_flag=True)
 def main(input_img_path, output_pred_path, model_path, is_batch, model_type):
     """
