@@ -36,7 +36,7 @@ seq = iaa.Sequential([
 
 class GDXrayDataGenerator(Sequence):
     # Generates data for Keras
-    def __init__(self, imgs_path, ann_path, labels, n_classes, batch_size=32, dim=(256, 256, 1),
+    def __init__(self, imgs_paths, ann_path, labels, n_classes, batch_size=32, dim=(256, 256, 1),
                  shuffle=True):
 
         self.ann_path = ann_path
@@ -44,30 +44,31 @@ class GDXrayDataGenerator(Sequence):
         self.labels = labels
         self.dim = dim
         self.n_classes = n_classes
-        self.images_path = imgs_path
-        self.indexes = np.arange(len(self.images_path)) # Do nothing for shuffle
+        self.images_paths = imgs_paths
+        self.indexes = np.arange(len(self.images_paths)) # Do nothing for shuffle
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.on_epoch_end()
 
     def __len__(self):
         # Denotes the number of batches per epoch
-        return int(np.floor(len(self.images_path))) # / self.batch_size)) # Multiply by the size batch or remove batch
+        return int(np.floor(len(self.images_paths) / self.batch_size)) # Multiply by the size batch or remove batch
 
     def __getitem__(self, index):
         # Generate indexes of the batch
         # if index 0 and batch 4 in range(0, 17) retrieve values [0 1 2 3]
         # if index 1 and batch 4 in range(0, 17) retrieve values [4 5 6 7]
-        # indexes = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
-        # image_paths = [self.image_paths[k] for k in indexes]
+        indexes = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
+        image_paths_filtered = [self.images_paths[k] for k in indexes]
         # # annot_paths = [self.annot_paths[k] for k in indexes]
-        # # TODO just send an image to create multiple images on the fly using imgaug lib until the size of the batch
         # # self.image_paths[index]
         # X, y = self.__data_generation(image_paths)
 
-        index_aux = self.indexes[index]
-        img_path = self.images_path[index_aux]
-        X, y = self.__data_generation(img_path)
+        # Create a random list with size of the indexes with all pictures
+        #
+        # index_aux = self.indexes[index]
+        # img_path = self.images_path[index_aux]
+        X, y = self.__data_generation(image_paths_filtered)
 
         return X, y
 
@@ -255,7 +256,7 @@ class GDXrayDataGenerator(Sequence):
 
         return Y
 
-    def __data_generation(self, img_path):
+    def __data_generation(self, img_paths):
         """
             Generate images augmented on the fly of the size of the batch.
             Parameters:
@@ -266,13 +267,14 @@ class GDXrayDataGenerator(Sequence):
         X = np.empty((self.batch_size, *self.dim), dtype=np.float32)
         y = np.empty((self.batch_size, self.dim[0], self.dim[1], self.n_classes), dtype=np.float32)
 
-        # retrieve img as numpy matrix
-        img = cv2.imread(str(img_path), 0)  # our images are gray_scale
-        img = np.expand_dims(img, axis=2)
-        # img = (img / 255.0).astype(np.float32) # Model input will transform
-        images = [np.copy(img) for _ in range(self.batch_size)] # generate batch for augmentation
-        img_info = self.get_img_info(img_path.name)
-        for i, image in enumerate(images):
+        for i, img_path in enumerate(img_paths):
+            # retrieve img as numpy matrix
+            img = cv2.imread(str(img_path), 0)  # our images are gray_scale
+            img = np.expand_dims(img, axis=2)
+            # img = (img / 255.0).astype(np.float32) # Model input will transform
+            # images = [np.copy(img) for _ in range(self.batch_size)] # generate batch for augmentation
+            img_info = self.get_img_info(img_path.name)
+            # for i, image in enumerate(images):
             if self.n_classes == 1:
                 imgaug, imgaug_shape = self.create_augimg(img, img_info)
                 imgaug_mask = self.get_mask(imgaug, imgaug_shape)
