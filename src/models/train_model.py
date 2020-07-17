@@ -27,7 +27,7 @@ def main(input_img_path, ann_path, model_type):
     ann_val_path = ann_path_dir / 'val' / ann_file_name
 
     imgs_path_train = create_random_list_of_size(imgs_path_train, len(imgs_path_train) * multiply_by)
-    imgs_path_val = create_random_list_of_size(imgs_path_val, len(imgs_path_train) * multiply_by)
+    imgs_path_val = create_random_list_of_size(imgs_path_val, len(imgs_path_val) * multiply_by)
 
     # Generate Data on the fly for train and validation
     data_generator_train = GDXrayDataGenerator(imgs_path_train,
