@@ -22,18 +22,25 @@ def main(input_img_path, ann_path, model_type):
     input_img_dir = Path(input_img_path)
     imgs_path_train = sorted([i.absolute() for i in (input_img_dir / 'train').glob("*.png") if i.is_file()])
     imgs_path_val = sorted([i.absolute() for i in (input_img_dir / 'val').glob("*.png") if i.is_file()])
+    imgs_path_test = sorted([i.absolute() for i in (input_img_dir / 'test').glob("*.png") if i.is_file()])
+
     ann_path_dir = Path(ann_path)
     ann_train_path = ann_path_dir / 'train' / ann_file_name
     ann_val_path = ann_path_dir / 'val' / ann_file_name
+    ann_test_path = ann_path_dir / 'test' / ann_file_name
 
     imgs_path_train = create_random_list_of_size(imgs_path_train, len(imgs_path_train) * multiply_by)
     imgs_path_val = create_random_list_of_size(imgs_path_val, len(imgs_path_val) * multiply_by)
 
     # Generate Data on the fly for train and validation
-    data_generator_train = GDXrayDataGenerator(imgs_path_train,
-                                               ann_train_path, labels, n_classes, batch_size=batch_size, dim=dim)
-    data_generator_val = GDXrayDataGenerator(imgs_path_val,
-                                             ann_val_path, labels, n_classes, batch_size=batch_size, dim=dim)
+    data_generator_train = GDXrayDataGenerator(imgs_path_train, ann_train_path, labels, n_classes, batch_size=batch_size,
+                                               dim=dim)
+
+    data_generator_val = GDXrayDataGenerator(imgs_path_val, ann_val_path, labels, n_classes, batch_size=batch_size,
+                                             dim=dim)
+
+    data_generator_test = GDXrayDataGenerator(imgs_path_test, ann_test_path, labels, n_classes, batch_size=batch_size,
+                                              dim=dim, augmentation=False)
 
     # Model Path
     model_path = Path('models') / (model_name % model_type)
@@ -53,16 +60,19 @@ def main(input_img_path, ann_path, model_type):
         verbose=1,
         callbacks=[model_early_stop, model_checkpoint]
     )
-
+    # Evaluate model
+    result = model.evaluate(data_generator_test)
+    print(result)
+    print(dict(zip(model.metrics_names, result)))
     model.save_model(str(model_path))
-
-    # Save History
-    acc_dic = {'y': history.history['accuracy'], 'X': history.history['val_accuracy'], 'title': 'model accuracy',
-               'ylabel': 'accuracy', 'xlabel': 'epoch', 'legend': ['train', 'val']}
-    loss_dic = {'y': history.history['loss'], 'X': history.history['val_loss'], 'title': 'model loss',
-                'ylabel': 'loss', 'xlabel': 'epoch', 'legend': ['train', 'val']}
-    save_model_history(acc_dic)
-    save_model_history(loss_dic)
+    print(history.history)
+    # # Save History
+    # acc_dic = {'y': history.history['accuracy'], 'X': history.history['val_accuracy'], 'title': 'model accuracy',
+    #            'ylabel': 'accuracy', 'xlabel': 'epoch', 'legend': ['train', 'val']}
+    # loss_dic = {'y': history.history['loss'], 'X': history.history['val_loss'], 'title': 'model loss',
+    #             'ylabel': 'loss', 'xlabel': 'epoch', 'legend': ['train', 'val']}
+    # save_model_history(acc_dic)
+    # save_model_history(loss_dic)
 
 
 if __name__ == '__main__':

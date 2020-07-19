@@ -4,6 +4,7 @@ from tensorflow.keras.activations import relu
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import Conv2D, Input, MaxPooling2D, concatenate, Dropout, Lambda, Conv2DTranspose, Add
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard
+from tensorflow.keras.metrics import MeanIoU
 
 
 class Unet(Model):
@@ -16,7 +17,7 @@ class Unet(Model):
     def __init__(self, input_dim, n_classes=1, n_filters=16, pretrained_weights=None):
         self.input_dim = input_dim
         self.n_filters = n_filters
-
+        self.n_classes = n_classes
         self.kernel_size = (3, 3)
         self.pool_size = (2, 2)
         self.dropout = 0.1
@@ -84,7 +85,7 @@ class Unet(Model):
         return d
 
     def build(self):
-        self.compile(optimizer=Adam(), loss=self.loss, metrics=["accuracy"])
+        self.compile(optimizer=Adam(), loss=self.loss, metrics=[MeanIoU(num_classes=self.n_classes)])
         self.summary()
 
     def save_model(self, name):
@@ -92,9 +93,9 @@ class Unet(Model):
 
     @staticmethod
     def checkpoint(name):
-        return ModelCheckpoint(name, monitor='val_accuracy', verbose=1, mode='max', save_best_only=True,
+        return ModelCheckpoint(name, monitor='iou_score', verbose=1, mode='max', save_best_only=True,
                                save_weights_only=True)
 
     @staticmethod
     def early_stopping():
-        return EarlyStopping(monitor='val_loss', patience=5, verbose=1, mode='min')
+        return EarlyStopping(monitor='iou_score', patience=5, verbose=1, mode='min')
