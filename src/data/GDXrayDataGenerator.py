@@ -6,7 +6,7 @@ import imgaug as ia
 from imgaug import augmenters as iaa
 from tensorflow.keras.utils import Sequence
 from imgaug.augmentables import Keypoint, KeypointsOnImage
-
+from src.utils import find_first, find_all
 
 seq = iaa.Sequential([
     iaa.Fliplr(0.5),  # horizontal flips
@@ -37,7 +37,7 @@ seq = iaa.Sequential([
 class GDXrayDataGenerator(Sequence):
     # Generates data for Keras
     def __init__(self, imgs_paths, ann_path, labels, n_classes, batch_size=32, dim=(256, 256, 1),
-                 shuffle=True):
+                 shuffle=True, augmentation=True):
 
         self.ann_path = ann_path
         self.set_ann_data()
@@ -48,6 +48,7 @@ class GDXrayDataGenerator(Sequence):
         self.indexes = np.arange(len(self.images_paths)) # Do nothing for shuffle
         self.batch_size = batch_size
         self.shuffle = shuffle
+        self.augmentation = augmentation
         self.on_epoch_end()
 
     def __len__(self):
@@ -60,14 +61,6 @@ class GDXrayDataGenerator(Sequence):
         # if index 1 and batch 4 in range(0, 17) retrieve values [4 5 6 7]
         indexes = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
         image_paths_filtered = [self.images_paths[k] for k in indexes]
-        # # annot_paths = [self.annot_paths[k] for k in indexes]
-        # # self.image_paths[index]
-        # X, y = self.__data_generation(image_paths)
-
-        # Create a random list with size of the indexes with all pictures
-        #
-        # index_aux = self.indexes[index]
-        # img_path = self.images_path[index_aux]
         X, y = self.__data_generation(image_paths_filtered)
 
         return X, y
@@ -89,12 +82,6 @@ class GDXrayDataGenerator(Sequence):
         if self.shuffle:
             np.random.shuffle(self.indexes)
 
-    def find_first(self, array, key, value):
-        return next((obj for obj in array if obj[key] == value), None)  # return object
-
-    def find_all(self, array, key, value):
-        return [obj for obj in array if obj[key] == value]
-
     def get_img_info(self, img_name):
         """
         Iterate over json object to search segmentation points
@@ -105,12 +92,12 @@ class GDXrayDataGenerator(Sequence):
             img_label and segmentation points of as tuple
         """
         img_seg, label = None, None
-        img_obj = self.find_first(self.dict_imgs, 'file_name', img_name)
+        img_obj = find_first(self.dict_imgs, 'file_name', img_name)
         if img_obj is not None:
-            ann_objs = self.find_all(self.dict_ann, 'image_id', str(img_obj['id']))
+            ann_objs = find_all(self.dict_ann, 'image_id', str(img_obj['id']))
             if ann_objs:
                 kps_list = [self.__get_img_seg_kps(ann_obj['segmentation']) for ann_obj in ann_objs]
-                labels = [self.find_first(self.dict_cat, 'id', ann_obj['category_id'])['name'] for ann_obj in ann_objs]
+                labels = [find_first(self.dict_cat, 'id', ann_obj['category_id'])['name'] for ann_obj in ann_objs]
                 return labels, kps_list  # return a list of KeyPoints list
             else:
                 kps = self.__create_img_seg(img_obj)
@@ -185,6 +172,15 @@ class GDXrayDataGenerator(Sequence):
         return img_aug, aug_points_dic
 
     def create_multi_augimg(self, img, img_info):
+        """
+        This method create image augmentation of multiple classes per image.
+        Parameters
+            img: as numpy array
+            img_info: tuple with label and keypoints
+
+        Return
+            augmented image and keypoints
+        """
         labels, points_list = img_info
         kps_merge = list()
         shapes_dict = list()
@@ -206,9 +202,13 @@ class GDXrayDataGenerator(Sequence):
             kps_oi = kps_oi.on(img)
 
         # Augment keypoints and images.
-        seq_det = seq.to_deterministic()
-        img_aug = seq_det.augment_images([img])[0]
-        kps_aug = seq_det.augment_keypoints([kps_oi])[0]
+        if self.augmentation:
+            seq_det = seq.to_deterministic()
+            img_aug = seq_det.augment_images([img])[0]
+            kps_aug = seq_det.augment_keypoints([kps_oi])[0]
+        else:
+            img_aug = img
+            kps_aug = kps_oi
 
         # Add points to each dictionary
         for shape in shapes_dict:
@@ -272,9 +272,7 @@ class GDXrayDataGenerator(Sequence):
             img = cv2.imread(str(img_path), 0)  # our images are gray_scale
             img = np.expand_dims(img, axis=2)
             # img = (img / 255.0).astype(np.float32) # Model input will transform
-            # images = [np.copy(img) for _ in range(self.batch_size)] # generate batch for augmentation
             img_info = self.get_img_info(img_path.name)
-            # for i, image in enumerate(images):
             if self.n_classes == 1:
                 imgaug, imgaug_shape = self.create_augimg(img, img_info)
                 imgaug_mask = self.get_mask(imgaug, imgaug_shape)
