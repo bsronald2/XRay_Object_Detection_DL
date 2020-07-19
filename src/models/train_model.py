@@ -49,7 +49,7 @@ def main(input_img_path, ann_path, model_type):
         x=data_generator_train,
         steps_per_epoch=len(data_generator_train),
         validation_data=data_generator_val,
-        epochs=2,
+        epochs=50,
         verbose=1,
         callbacks=[model_early_stop, model_checkpoint]
     )
@@ -60,10 +60,9 @@ def main(input_img_path, ann_path, model_type):
     acc_dic = {'y': history.history['accuracy'], 'X': history.history['val_accuracy'], 'title': 'model accuracy',
                'ylabel': 'accuracy', 'xlabel': 'epoch', 'legend': ['train', 'val']}
     loss_dic = {'y': history.history['loss'], 'X': history.history['val_loss'], 'title': 'model loss',
-               'ylabel': 'loss', 'xlabel': 'epoch', 'legend': ['train', 'val']}
+                'ylabel': 'loss', 'xlabel': 'epoch', 'legend': ['train', 'val']}
     save_model_history(acc_dic)
     save_model_history(loss_dic)
-
 
 
 if __name__ == '__main__':
