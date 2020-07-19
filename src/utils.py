@@ -42,3 +42,11 @@ def save_model_history(data):
     plt.savefig(f"{reports_path}/{data['title']}_{time_stamp}.png")
     plt.clf()
     plt.close()
+
+
+def find_first(array, key, value):
+    return next((obj for obj in array if obj[key] == value), None)  # return object
+
+
+def find_all(array, key, value):
+    return [obj for obj in array if obj[key] == value]

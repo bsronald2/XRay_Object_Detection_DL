@@ -3,6 +3,7 @@ SEED = 1
 multiply_by = 10
 # Labels/n_classes
 labels = sorted(['gun', 'knife'])
+hues_labels = {'gun':0, 'knife': 25, 'background': 45}
 # count background
 n_classes = len(labels) + 1 # background
 # number filters
