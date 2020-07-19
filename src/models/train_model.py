@@ -43,7 +43,7 @@ def main(input_img_path, ann_path, model_type):
     model = Unet(dim, n_classes, n_filters)
     model.build()
     model_checkpoint = model.checkpoint(str(model_path))
-
+    model_early_stop = model.early_stopping()
     # Fit the model
     history = model.fit(
         x=data_generator_train,
@@ -51,11 +51,12 @@ def main(input_img_path, ann_path, model_type):
         validation_data=data_generator_val,
         epochs=2,
         verbose=1,
-        callbacks=[model_checkpoint]
+        callbacks=[model_early_stop, model_checkpoint]
     )
 
     model.save_model(str(model_path))
-    print(history.history.keys())
+
+    # Save History
     acc_dic = {'y': history.history['accuracy'], 'X': history.history['val_accuracy'], 'title': 'model accuracy',
                'ylabel': 'accuracy', 'xlabel': 'epoch', 'legend': ['train', 'val']}
     loss_dic = {'y': history.history['loss'], 'X': history.history['val_loss'], 'title': 'model loss',

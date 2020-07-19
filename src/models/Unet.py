@@ -3,7 +3,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.activations import relu
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import Conv2D, Input, MaxPooling2D, concatenate, Dropout, Lambda, Conv2DTranspose, Add
-from tensorflow.keras.callbacks import ModelCheckpoint
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard
 
 
 class Unet(Model):
@@ -12,7 +12,8 @@ class Unet(Model):
     https://keras.io/api/models/model/
     https://github.com/sevakon/unet-keras/
     """
-    def __init__(self, input_dim, n_classes=1, n_filters=16, pretrained_weights = None):
+
+    def __init__(self, input_dim, n_classes=1, n_filters=16, pretrained_weights=None):
         self.input_dim = input_dim
         self.n_filters = n_filters
 
@@ -91,5 +92,9 @@ class Unet(Model):
 
     @staticmethod
     def checkpoint(name):
-        return ModelCheckpoint(name,  monitor='val_accuracy', verbose=1, mode='max', save_best_only=True,
+        return ModelCheckpoint(name, monitor='val_accuracy', verbose=1, mode='max', save_best_only=True,
                                save_weights_only=True)
+
+    @staticmethod
+    def early_stopping():
+        return EarlyStopping(monitor='val_loss', patience=5, verbose=1, mode='min')
