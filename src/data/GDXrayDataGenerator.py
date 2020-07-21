@@ -65,6 +65,10 @@ class GDXrayDataGenerator(Sequence):
 
         return X, y
 
+    def get_iter(self):
+        for i in range(len(self)):
+            yield self[i]
+
     def set_ann_data(self):
         """
         Open annotation file and
