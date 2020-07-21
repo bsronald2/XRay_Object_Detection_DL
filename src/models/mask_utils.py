@@ -26,8 +26,14 @@ class Mask:
         return mask
 
     def blending_2D_images(self, img, pred_mask):
+        print(img.shape, pred_mask.shape)
         pred_color_mask = self.color_masks(pred_mask.squeeze() * 255.0)
-        stacked_img = np.stack((img[0].squeeze(),) * 3, axis=-1).astype(np.uint8)
+        stacked_img = np.stack((img.squeeze(),) * 3, axis=-1).astype(np.uint8)
         new_img = cv2.addWeighted(stacked_img, 1.0, pred_color_mask, 5.0, 0)
         time_stamp = datetime.timestamp(datetime.now())
-        imageio.imwrite(f'{self.pred_path}/{time_stamp}.png')
+        imageio.imwrite(f'{self.pred_path}/prediction_{time_stamp}.png', new_img)
+
+    def blending_batch(self, X, y_pre):
+        batch_size = X.shape[0]
+        for index in range(batch_size):
+            self.blending_2D_images(X[index], y_pre[index])

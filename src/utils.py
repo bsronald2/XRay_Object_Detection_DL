@@ -44,6 +44,21 @@ def save_model_history(data):
     plt.close()
 
 
+def save_iou_th(thresholds, ious, threshold_best, iou_best):
+    plt.plot(thresholds, ious)
+    plt.plot(threshold_best, iou_best, "xr", label="Best threshold")
+    plt.xlabel("Threshold")
+    plt.ylabel("IoU")
+    plt.title("Threshold vs IoU ({}, {})".format(threshold_best, iou_best))
+    plt.legend()
+
+    # Save Image
+    time_stamp = datetime.timestamp(datetime.now())
+    plt.savefig(f"{reports_path}/iou_vs_thr_{time_stamp}.png")
+    plt.clf()
+    plt.close()
+
+
 def find_first(array, key, value):
     return next((obj for obj in array if obj[key] == value), None)  # return object
 
