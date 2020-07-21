@@ -4,7 +4,7 @@ from tensorflow.keras.activations import relu
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import Conv2D, Input, MaxPooling2D, concatenate, Dropout, Lambda, Conv2DTranspose, Add
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard
-from tensorflow.keras.metrics import MeanIoU
+import tensorflow.keras.backend as K
 
 
 class Unet(Model):
@@ -72,6 +72,12 @@ class Unet(Model):
         if pretrained_weights:
             self.load_weights(pretrained_weights)
 
+    def dice(y_true, y_pred, smooth=1.):
+        y_true_f = K.flatten(y_true)
+        y_pred_f = K.flatten(y_pred)
+        intersection = K.sum(y_true_f * y_pred_f)
+        return (2. * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
+
     def __double_conv2D(self, inputs, filters):
         c = Conv2D(filters, self.kernel_size, activation=relu, kernel_initializer='he_normal', padding='same')(inputs)
         c = Dropout(self.dropout)(c)  # in order to avoid over-fitting
@@ -85,7 +91,7 @@ class Unet(Model):
         return d
 
     def build(self):
-        self.compile(optimizer=Adam(), loss=self.loss, metrics=[MeanIoU(num_classes=self.n_classes)])
+        self.compile(optimizer=Adam(), loss=self.loss, metrics=["accuracy"])
         self.summary()
 
     def save_model(self, name):
@@ -93,9 +99,9 @@ class Unet(Model):
 
     @staticmethod
     def checkpoint(name):
-        return ModelCheckpoint(name, monitor='iou_score', verbose=1, mode='max', save_best_only=True,
+        return ModelCheckpoint(name, monitor='val_accuracy', verbose=1, mode='max', save_best_only=True,
                                save_weights_only=True)
 
     @staticmethod
     def early_stopping():
-        return EarlyStopping(monitor='iou_score', patience=5, verbose=1, mode='min')
+        return EarlyStopping(monitor='val_loss', patience=5, verbose=1, mode='min')
