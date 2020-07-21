@@ -52,15 +52,16 @@ def main(input_img_path, ann_path, model_type):
     model.build()
     model_checkpoint = model.checkpoint(str(model_path))
     model_early_stop = model.early_stopping()
+    model_rp = model.reduceLROn_plateau()
 
-    # Fit the model
+    # Fit the model TODO add timer
     history = model.fit(
         x=data_generator_train,
         steps_per_epoch=len(data_generator_train),
         validation_data=data_generator_val,
         epochs=50,
         verbose=1,
-        callbacks=[model_early_stop, model_checkpoint]
+        callbacks=[model_early_stop, model_checkpoint, model_rp]
     )
 
     # Evaluate model

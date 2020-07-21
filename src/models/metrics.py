@@ -1,8 +1,11 @@
 import numpy as np
 
 
-# src: https://www.kaggle.com/aglotero/another-iou-metric
 def iou_metric(y_true_in, y_pred_in, verbose=False):
+    """
+    This implementation is based on
+    src: https://www.kaggle.com/aglotero/another-iou-metric
+    """
     labels = y_true_in
     y_pred = y_pred_in
 

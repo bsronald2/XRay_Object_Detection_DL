@@ -3,7 +3,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.activations import relu
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import Conv2D, Input, MaxPooling2D, concatenate, Dropout, Lambda, Conv2DTranspose, Add
-from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, TensorBoard
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
 import tensorflow.keras.backend as K
 
 
@@ -105,3 +105,7 @@ class Unet(Model):
     @staticmethod
     def early_stopping():
         return EarlyStopping(monitor='val_loss', patience=5, verbose=1, mode='min')
+
+    @staticmethod
+    def reduceLROn_plateau():
+        return ReduceLROnPlateau(monitor='val_loss', factor=0.8, verbose=1, mode='auto', cooldown=5, min_lr=1e-4)
