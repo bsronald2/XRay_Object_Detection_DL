@@ -5,14 +5,18 @@ from dotenv import find_dotenv, load_dotenv
 from src.models.Unet import Unet
 from src.config import dim, n_classes, n_filters, labels, model_name, ann_file_name, multiply_by, batch_size
 from src.data.GDXrayDataGenerator import GDXrayDataGenerator
+from src.models.metrics import (dice_coef, bce_dice_loss)
 from src.utils import delete_file, create_random_list_of_size, save_model_history
+from tensorflow.keras.optimizers import Adam, RMSprop
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
 
 
 @click.command()
 @click.argument('input_img_path', type=click.Path(exists=True))
 @click.argument('ann_path', type=click.Path(exists=True))
 @click.option('--model-type', type=click.Choice(['unet'], case_sensitive=False))
-def main(input_img_path, ann_path, model_type):
+@click.option('--metric', type=click.Choice(['acc', 'dice'], case_sensitive=False))
+def main(input_img_path, ann_path, model_type, metric):
     """
     Runs training process and save model.
     """
@@ -36,7 +40,8 @@ def main(input_img_path, ann_path, model_type):
     imgs_path_test = create_random_list_of_size(imgs_path_test, len(imgs_path_test) * multiply_by)
 
     # Generate Data on the fly for train and validation
-    data_generator_train = GDXrayDataGenerator(imgs_path_train, ann_train_path, labels, n_classes, batch_size=batch_size,
+    data_generator_train = GDXrayDataGenerator(imgs_path_train, ann_train_path, labels, n_classes,
+                                               batch_size=batch_size,
                                                dim=dim)
     data_generator_val = GDXrayDataGenerator(imgs_path_val, ann_val_path, labels, n_classes, batch_size=batch_size,
                                              dim=dim)
@@ -49,10 +54,8 @@ def main(input_img_path, ann_path, model_type):
 
     # Set-up model selected
     model = Unet(dim, n_classes, n_filters)
-    model.build()
-    model_checkpoint = model.checkpoint(str(model_path))
-    model_early_stop = model.early_stopping()
-    model_rp = model.reduceLROn_plateau()
+    conf, call_backs = get_model_configures(metric, str(model_path))
+    model.build_model(**conf)
 
     # Fit the model TODO add timer
     history = model.fit(
@@ -61,7 +64,7 @@ def main(input_img_path, ann_path, model_type):
         validation_data=data_generator_val,
         epochs=50,
         verbose=1,
-        callbacks=[model_early_stop, model_checkpoint, model_rp]
+        callbacks=call_backs
     )
 
     # Evaluate model
@@ -69,15 +72,46 @@ def main(input_img_path, ann_path, model_type):
     print(result)
     print(dict(zip(model.metrics_names, result)))
     model.save_model(str(model_path))
-    print(history.history)
 
     # Save History
-    acc_dic = {'y': history.history['accuracy'], 'X': history.history['val_accuracy'], 'title': 'model accuracy',
-               'ylabel': 'accuracy', 'xlabel': 'epoch', 'legend': ['train', 'val']}
-    loss_dic = {'y': history.history['loss'], 'X': history.history['val_loss'], 'title': 'model loss',
-                'ylabel': 'loss', 'xlabel': 'epoch', 'legend': ['train', 'val']}
-    save_model_history(acc_dic)
-    save_model_history(loss_dic)
+    save_history(metric, history)
+
+
+def get_model_configures(metric, model_path):
+    if metric == 'acc':
+        conf = {'optimizer': Adam(), 'loss': 'categorical_crossentropy', 'metrics': ["accuracy"]}
+        call_backs = [ModelCheckpoint(model_path, monitor='val_loss', verbose=1, mode='min', save_best_only=True,
+                                      save_weights_only=True),
+                      EarlyStopping(monitor='val_loss', patience=15, verbose=1, mode='min'),
+                      ReduceLROnPlateau(monitor='val_loss', factor=0.8, verbose=1, mode='min', cooldown=5, min_lr=1e-5)]
+    elif metric == 'dice':
+        conf = {'optimizer': RMSprop(0.0001), 'loss': bce_dice_loss, 'metrics': [dice_coef]}
+        call_backs = [EarlyStopping(monitor='val_dice_coef', patience=10, verbose=1, min_delta=1e-4, mode='max'),
+                      ReduceLROnPlateau(monitor='val_dice_coef', factor=0.2, patience=5, verbose=1, epsilon=1e-4,
+                                        mode='max'),
+                      ModelCheckpoint(model_path, monitor='val_dice_coef', verbose=1, mode='max',
+                                      save_best_only=True, save_weights_only=True)]
+    else:
+        raise ValueError(f"Unrecognized parameter: {metric}")
+
+    return conf, call_backs
+
+
+def save_history(metric, history):
+    if metric == 'acc':
+        acc_dic = {'y': history.history['accuracy'], 'X': history.history['val_accuracy'], 'title': 'model accuracy',
+                   'ylabel': 'accuracy', 'xlabel': 'epoch', 'legend': ['train', 'val']}
+        loss_dic = {'y': history.history['loss'], 'X': history.history['val_loss'], 'title': 'model loss',
+                    'ylabel': 'loss', 'xlabel': 'epoch', 'legend': ['train', 'val']}
+        save_model_history(acc_dic)
+        save_model_history(loss_dic)
+    elif metric == 'dice':
+        dice_dic = {'y': history.history['dice_coef'], 'X': history.history['val_dice_coef'], 'title': 'model dice',
+                   'ylabel': 'dice', 'xlabel': 'epoch', 'legend': ['train', 'val']}
+        loss_dic = {'y': history.history['loss'], 'X': history.history['val_loss'], 'title': 'model loss',
+                    'ylabel': 'loss', 'xlabel': 'epoch', 'legend': ['train', 'val']}
+        save_model_history(dice_dic)
+        save_model_history(loss_dic)
 
 
 if __name__ == '__main__':

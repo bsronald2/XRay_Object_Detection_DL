@@ -1,10 +1,11 @@
 from keras.models import Model
 from tensorflow.keras.models import Model
 from tensorflow.keras.activations import relu
-from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.optimizers import Adam, RMSprop
 from tensorflow.keras.layers import Conv2D, Input, MaxPooling2D, concatenate, Dropout, Lambda, Conv2DTranspose, Add
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
 import tensorflow.keras.backend as K
+from src.models.metrics import (dice_coef, dice_loss, bce_dice_loss)
 
 
 class Unet(Model):
@@ -90,22 +91,9 @@ class Unet(Model):
 
         return d
 
-    def build(self):
-        self.compile(optimizer=Adam(), loss=self.loss, metrics=["accuracy"])
+    def build_model(self, optimizer, loss, metrics):
+        self.compile(optimizer=optimizer, loss=loss, metrics=metrics)
         self.summary()
 
     def save_model(self, name):
         self.save_weights(name)
-
-    @staticmethod
-    def checkpoint(name):
-        return ModelCheckpoint(name, monitor='val_accuracy', verbose=1, mode='max', save_best_only=True,
-                               save_weights_only=True)
-
-    @staticmethod
-    def early_stopping():
-        return EarlyStopping(monitor='val_loss', patience=5, verbose=1, mode='min')
-
-    @staticmethod
-    def reduceLROn_plateau():
-        return ReduceLROnPlateau(monitor='val_loss', factor=0.8, verbose=1, mode='auto', cooldown=5, min_lr=1e-4)

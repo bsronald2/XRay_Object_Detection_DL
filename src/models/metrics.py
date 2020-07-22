@@ -1,4 +1,6 @@
 import numpy as np
+import tensorflow.keras.backend as K
+from tensorflow.keras.losses import binary_crossentropy
 
 
 def iou_metric(y_true_in, y_pred_in, verbose=False):
@@ -71,3 +73,29 @@ def iou_metric_batch(y_true_in, y_pred_in):
         metric.append(value)
 
     return np.mean(metric)
+
+
+def dice_coef(y_true, y_pred):
+    y_true_f = K.flatten(y_true)
+    y_pred = K.cast(y_pred, 'float32')
+    y_pred_f = K.cast(K.greater(K.flatten(y_pred), 0.5), 'float32')
+    intersection = y_true_f * y_pred_f
+    score = 2. * K.sum(intersection) / (K.sum(y_true_f) + K.sum(y_pred_f))
+    return score
+
+
+def dice_loss(y_true, y_pred):
+    smooth = 1.
+    y_true_f = K.flatten(y_true)
+    y_pred_f = K.flatten(y_pred)
+    intersection = y_true_f * y_pred_f
+    score = (2. * K.sum(intersection) + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
+    return 1. - score
+
+
+def bce_dice_loss(y_true, y_pred):
+    """Balanced Cross Entropy Dice Loss
+    https://lars76.github.io/neural-networks/object-detection/losses-for-segmentation/
+    https://www.kaggle.com/c/carvana-image-masking-challenge/discussion/40199
+    """
+    return binary_crossentropy(y_true, y_pred) + dice_loss(y_true, y_pred)
