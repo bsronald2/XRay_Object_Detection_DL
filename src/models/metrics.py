@@ -1,6 +1,6 @@
 import numpy as np
 import tensorflow.keras.backend as K
-from tensorflow.keras.losses import binary_crossentropy
+from tensorflow.keras.losses import binary_crossentropy, categorical_crossentropy
 
 
 def iou_metric(y_true_in, y_pred_in, verbose=False):

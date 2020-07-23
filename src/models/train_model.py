@@ -6,6 +6,7 @@ from src.models.Unet import Unet
 from src.config import dim, n_classes, n_filters, labels, model_name, ann_file_name, multiply_by, batch_size
 from src.data.GDXrayDataGenerator import GDXrayDataGenerator
 from src.models.metrics import (dice, dice_coef, bce_dice_loss)
+from src.models.iou_metric import iou
 from src.utils import delete_file, create_random_list_of_size, save_model_history
 from tensorflow.keras.optimizers import Adam, RMSprop
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
@@ -15,7 +16,7 @@ from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLRO
 @click.argument('input_img_path', type=click.Path(exists=True))
 @click.argument('ann_path', type=click.Path(exists=True))
 @click.option('--model-type', type=click.Choice(['unet'], case_sensitive=False))
-@click.option('--metric', type=click.Choice(['acc', 'dice'], case_sensitive=False))
+@click.option('--metric', type=click.Choice(['acc', 'dice', 'iou'], case_sensitive=False))
 def main(input_img_path, ann_path, model_type, metric):
     """
     Runs training process and save model.
@@ -86,11 +87,19 @@ def get_model_configures(metric, model_path):
                       ReduceLROnPlateau(monitor='val_loss', factor=0.8, verbose=1, mode='min', cooldown=5, min_lr=1e-5)]
     elif metric == 'dice':
         conf = {'optimizer': Adam(), 'loss': 'categorical_crossentropy', 'metrics': [dice_coef]}
-        call_backs = [EarlyStopping(monitor='val_dice_coef', patience=10, verbose=1, min_delta=1e-4, mode='max'),
-                      ReduceLROnPlateau(monitor='val_dice_coef', factor=0.2, patience=5, verbose=1, epsilon=1e-4,
-                                        mode='max'),
-                      ModelCheckpoint(model_path, monitor='val_dice_coef', verbose=1, mode='max',
+        call_backs = [ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, verbose=1, epsilon=1e-4,
+                                        mode='min'),
+                      ModelCheckpoint(model_path, monitor='val_loss', verbose=1, mode='min',
                                       save_best_only=True, save_weights_only=True)]
+    elif metric == 'iou':
+        conf = {'optimizer': Adam(), 'loss': 'categorical_crossentropy', 'metrics': [iou]}
+        call_backs = [
+            EarlyStopping(monitor='val_iou', patience=15, verbose=1, min_delta=1e-4, mode='max'),
+            ReduceLROnPlateau(monitor='val_iou', factor=0.2, patience=5, verbose=1, epsilon=1e-4,
+                              mode='max'),
+            ModelCheckpoint(model_path, monitor='val_iou', verbose=1, mode='max',
+                            save_best_only=True, save_weights_only=True)]
+
     else:
         raise ValueError(f"Unrecognized parameter: {metric}")
 
@@ -99,15 +108,22 @@ def get_model_configures(metric, model_path):
 
 def save_history(metric, history):
     if metric == 'acc':
-        acc_dic = {'y': history.history['accuracy'], 'X': history.history['val_accuracy'], 'title': 'model accuracy',
+        acc_dic = {'y': history.history['accuracy'], 'X': history.history['val_accuracy'], 'title': 'Accuracy',
                    'ylabel': 'accuracy', 'xlabel': 'epoch', 'legend': ['train', 'val']}
         loss_dic = {'y': history.history['loss'], 'X': history.history['val_loss'], 'title': 'model loss',
                     'ylabel': 'loss', 'xlabel': 'epoch', 'legend': ['train', 'val']}
         save_model_history(acc_dic)
         save_model_history(loss_dic)
     elif metric == 'dice':
-        dice_dic = {'y': history.history['dice_coef'], 'X': history.history['val_dice_coef'], 'title': 'model dice',
+        dice_dic = {'y': history.history['dice_coef'], 'X': history.history['val_dice_coef'], 'title': 'Dice',
                    'ylabel': 'dice', 'xlabel': 'epoch', 'legend': ['train', 'val']}
+        loss_dic = {'y': history.history['loss'], 'X': history.history['val_loss'], 'title': 'model loss',
+                    'ylabel': 'loss', 'xlabel': 'epoch', 'legend': ['train', 'val']}
+        save_model_history(dice_dic)
+        save_model_history(loss_dic)
+    elif metric == 'iou':
+        dice_dic = {'y': history.history['iou'], 'X': history.history['val_iou'], 'title': 'IoU',
+                    'ylabel': 'dice', 'xlabel': 'epoch', 'legend': ['train', 'val']}
         loss_dic = {'y': history.history['loss'], 'X': history.history['val_loss'], 'title': 'model loss',
                     'ylabel': 'loss', 'xlabel': 'epoch', 'legend': ['train', 'val']}
         save_model_history(dice_dic)
