@@ -5,7 +5,7 @@ from dotenv import find_dotenv, load_dotenv
 from src.models.Unet import Unet
 from src.config import dim, n_classes, n_filters, labels, model_name, ann_file_name, multiply_by, batch_size
 from src.data.GDXrayDataGenerator import GDXrayDataGenerator
-from src.models.metrics import (dice_coef, bce_dice_loss)
+from src.models.metrics import (dice, dice_coef, bce_dice_loss)
 from src.utils import delete_file, create_random_list_of_size, save_model_history
 from tensorflow.keras.optimizers import Adam, RMSprop
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
@@ -85,7 +85,7 @@ def get_model_configures(metric, model_path):
                       EarlyStopping(monitor='val_loss', patience=15, verbose=1, mode='min'),
                       ReduceLROnPlateau(monitor='val_loss', factor=0.8, verbose=1, mode='min', cooldown=5, min_lr=1e-5)]
     elif metric == 'dice':
-        conf = {'optimizer': RMSprop(0.0001), 'loss': bce_dice_loss, 'metrics': [dice_coef]}
+        conf = {'optimizer': Adam(), 'loss': 'categorical_crossentropy', 'metrics': [dice_coef]}
         call_backs = [EarlyStopping(monitor='val_dice_coef', patience=10, verbose=1, min_delta=1e-4, mode='max'),
                       ReduceLROnPlateau(monitor='val_dice_coef', factor=0.2, patience=5, verbose=1, epsilon=1e-4,
                                         mode='max'),

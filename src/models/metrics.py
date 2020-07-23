@@ -75,6 +75,13 @@ def iou_metric_batch(y_true_in, y_pred_in):
     return np.mean(metric)
 
 
+def dice(y_true, y_pred, smooth=1.):
+    y_true_f = K.flatten(y_true)
+    y_pred_f = K.flatten(y_pred)
+    intersection = K.sum(y_true_f * y_pred_f)
+    return (2. * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
+
+
 def dice_coef(y_true, y_pred):
     y_true_f = K.flatten(y_true)
     y_pred = K.cast(y_pred, 'float32')
