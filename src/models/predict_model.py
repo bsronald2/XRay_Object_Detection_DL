@@ -7,7 +7,7 @@ from src.models.Unet import Unet
 from src.config import dim, n_classes, n_filters, ann_file_name, labels, batch_size
 from src.data.GDXrayDataGenerator import GDXrayDataGenerator
 from src.models.mask_utils import Mask
-from src.models.metrics import iou_metric_batch
+from src.models.metrics import metric_batch
 import numpy as np
 
 
@@ -38,23 +38,43 @@ def main(input_img_path, ann_path, output_pred_path, model_path, is_batch, model
 
     data_generator_test = GDXrayDataGenerator(imgs_path_test, ann_test_path, labels, n_classes, batch_size=batch_size,
                                               dim=dim)
-    th_steps = 25
-    thresholds = np.linspace(0, 1, th_steps)
-    metric = list()
     mask = Mask(output_pred_path)
+
+#    calculate_iou_metric(model, data_generator_test, mask)
+    calculate_dice_metric(model, data_generator_test, mask)
+
+
+def calculate_dice_metric(model, data_generator_test, mask):
+    metrics = list()
     for X, y_exp in data_generator_test.get_iter():
         y_pred = model.predict(X)
-        metric.extend(np.array([iou_metric_batch(y_exp, np.int32(y_pred > threshold)) for threshold in
+        metrics.append(metric_batch(y_exp, y_pred, calc_metric='dice'))
+        # Save predictions
+        mask.blending_batch(X, y_pred)
+
+    dice_value = np.mean(metrics)
+    print("Dice Metric:", dice_value)
+
+
+def calculate_iou_metric(model, data_generator_test, mask):
+    metric = list()
+    th_steps = 25
+    thresholds = np.linspace(0, 1, th_steps)
+    for X, y_exp in data_generator_test.get_iter():
+        y_pred = model.predict(X)
+        metric.extend(np.array([metric_batch(y_exp, np.int32(y_pred > threshold)) for threshold in
                                 thresholds]))
         # Save predictions
         mask.blending_batch(X, y_pred)
 
-    # Retrieve best iou and threshold
+        # Retrieve best iou and threshold
     metric = np.array(metric).reshape(3, th_steps)
     metric_mean = metric.mean(axis=0)
     best_threshold_index = np.argmax(metric_mean)
     best_iou = metric_mean[best_threshold_index]
+    print('Best IoU mean:', best_iou)
     best_threshold = thresholds[best_threshold_index]
+    print('Best Threshold:', best_threshold)
     save_iou_th(thresholds, metric_mean, best_threshold, best_iou)
 
 

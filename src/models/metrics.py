@@ -63,18 +63,25 @@ def iou_metric(y_true_in, y_pred_in, verbose=False):
     return np.mean(prec)
 
 
-def iou_metric_batch(y_true_in, y_pred_in):
+def metric_batch(y_true_in, y_pred_in, calc_metric='iou'):
     assert y_true_in.shape == y_pred_in.shape, f'Masks have different shapes: expected ({y_true_in.shape}) vs ' \
                                                f'predicted ({y_pred_in.shape})'
     batch_size = y_true_in.shape[0]
-    metric = []
+    metrics = []
     for batch in range(batch_size):
-        value = iou_metric(y_true_in[batch], y_pred_in[batch], verbose=False)
-        metric.append(value)
+        if calc_metric == 'iou':
+            value = iou_metric(y_true_in[batch], y_pred_in[batch], verbose=False)
+        elif calc_metric == 'dice':
+            value = dice_coef(y_true_in[batch], y_pred_in[batch])
+        else:
+            raise AttributeError(f'{calc_metric} metric is not supported.')
+        metrics.append(value)
 
-    return np.mean(metric)
+    return np.mean(metrics)
 
-
+# Dice metrics are implemented from the following sources.
+#     https://lars76.github.io/neural-networks/object-detection/losses-for-segmentation/
+#     https://www.kaggle.com/c/carvana-image-masking-challenge/discussion/40199
 def dice(y_true, y_pred, smooth=1.):
     y_true_f = K.flatten(y_true)
     y_pred_f = K.flatten(y_pred)
@@ -102,7 +109,5 @@ def dice_loss(y_true, y_pred):
 
 def bce_dice_loss(y_true, y_pred):
     """Balanced Cross Entropy Dice Loss
-    https://lars76.github.io/neural-networks/object-detection/losses-for-segmentation/
-    https://www.kaggle.com/c/carvana-image-masking-challenge/discussion/40199
     """
     return binary_crossentropy(y_true, y_pred) + dice_loss(y_true, y_pred)

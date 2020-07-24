@@ -2,7 +2,7 @@ from skimage.morphology import label
 import numpy as np
 import tensorflow as tf
 
-
+# This code is used from https://www.kaggle.com/aglotero/another-iou-metric
 def iou_metric(y_true_in, y_pred_in, print_table=False):
     labels = label(y_true_in > 0.5)
     y_pred = label(y_pred_in > 0.5)
