@@ -2,6 +2,7 @@ import click
 import logging
 from pathlib import Path
 from dotenv import find_dotenv, load_dotenv
+from src.models.contours import predict_contours_batch
 from src.utils import create_dir, create_random_list_of_size, save_iou_th
 from src.models.Unet import Unet
 from src.config import dim, n_classes, n_filters, ann_file_name, labels, batch_size
@@ -25,8 +26,7 @@ def main(input_img_path, ann_path, output_pred_path, model_path, is_batch, model
     logger = logging.getLogger(__name__)
     # Create Directory if doesn't exits otherwise remove items inside it.
     create_dir(Path(output_pred_path))
-    # Load model pre-trained
-    model = Unet(dim, n_classes, n_filters=n_filters, pretrained_weights=model_path)
+
     # collect images path
     input_img_dir = Path(input_img_path)
     imgs_path_test = sorted([i.absolute() for i in (input_img_dir / 'test').glob("*.png") if i.is_file()])
@@ -35,16 +35,22 @@ def main(input_img_path, ann_path, output_pred_path, model_path, is_batch, model
     ann_test_path = ann_path_dir / 'test' / ann_file_name
 
     imgs_path_test = create_random_list_of_size(imgs_path_test, len(imgs_path_test) * 3)
-
-    data_generator_test = GDXrayDataGenerator(imgs_path_test, ann_test_path, labels, n_classes, batch_size=batch_size,
-                                              dim=dim)
     mask = Mask(output_pred_path)
 
 #    calculate_iou_metric(model, data_generator_test, mask)
-    calculate_dice_metric(model, data_generator_test, mask)
+    if model_type == 'unet':
+        # Load model pre-trained
+        data_generator_test = GDXrayDataGenerator(imgs_path_test, ann_test_path, labels, n_classes,
+                                                  batch_size=batch_size, dim=dim)
+        model = Unet(dim, n_classes, n_filters=n_filters, pretrained_weights=model_path)
+        predict_unet(model, data_generator_test, mask)
+    elif model_type == 'contours':
+        data_generator_test = GDXrayDataGenerator(imgs_path_test, ann_test_path, labels, n_classes,
+                                                  batch_size=batch_size, dim=dim, task='binary')
+        predict_contours_batch(data_generator_test, mask)
 
 
-def calculate_dice_metric(model, data_generator_test, mask):
+def predict_unet(model, data_generator_test, mask):
     metrics = list()
     for X, y_exp in data_generator_test.get_iter():
         y_pred = model.predict(X)

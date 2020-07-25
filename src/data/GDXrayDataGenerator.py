@@ -1,12 +1,15 @@
+from datetime import datetime
+
 import numpy as np
 import tensorflow as tf
 import json
 import cv2
 import imgaug as ia
-from imgaug import augmenters as iaa
+from imgaug import augmenters as iaa, imageio
 from tensorflow.keras.utils import Sequence
 from imgaug.augmentables import Keypoint, KeypointsOnImage
 from src.utils import find_first, find_all
+
 
 seq = iaa.Sequential([
     iaa.Fliplr(0.5),  # horizontal flips
@@ -37,7 +40,7 @@ seq = iaa.Sequential([
 class GDXrayDataGenerator(Sequence):
     # Generates data for Keras
     def __init__(self, imgs_paths, ann_path, labels, n_classes, batch_size=32, dim=(256, 256, 1),
-                 shuffle=True, augmentation=True):
+                 shuffle=True, augmentation=True, task='multi'):
 
         self.ann_path = ann_path
         self.set_ann_data()
@@ -49,6 +52,7 @@ class GDXrayDataGenerator(Sequence):
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.augmentation = augmentation
+        self.task = task
         self.on_epoch_end()
 
     def __len__(self):
@@ -164,7 +168,10 @@ class GDXrayDataGenerator(Sequence):
             augmented image and keypoints
         """
         label, points = img_info
-        kps = KeypointsOnImage(points, shape=img.shape)
+        # print(points)
+        kps_merge = [point for key_points in points for point in key_points]
+        kps = KeypointsOnImage(kps_merge, shape=img.shape)
+        # print(kps)
         if img.shape != self.dim:
             img = ia.imresize_single_image(img, self.dim[0:2])
             kps = kps.on(img)
@@ -225,9 +232,11 @@ class GDXrayDataGenerator(Sequence):
         """
          Create a mask for an image
         """
+        poly = [np.array(x['points'], dtype=np.int32) for x in imgaug_shape]
         blank = np.zeros(shape=(img.shape[0], img.shape[1]), dtype=np.float32)
-        points = np.array(imgaug_shape['points'], dtype=np.int32)
-        cv2.fillPoly(blank, [points], 255)
+        for p in poly:
+            points = np.array(p, dtype=np.int32)
+            cv2.fillPoly(blank, [points], 255)
         blank = blank / 255.0
 
         return np.expand_dims(blank, axis=2)
@@ -269,7 +278,10 @@ class GDXrayDataGenerator(Sequence):
                 Batch of X and y
         """
         X = np.empty((self.batch_size, *self.dim), dtype=np.float32)
-        y = np.empty((self.batch_size, self.dim[0], self.dim[1], self.n_classes), dtype=np.float32)
+        channels = self.n_classes
+        if self.task == 'binary':
+            channels = 1
+        y = np.empty((self.batch_size, self.dim[0], self.dim[1], channels), dtype=np.float32)
 
         for i, img_path in enumerate(img_paths):
             # retrieve img as numpy matrix
@@ -277,10 +289,10 @@ class GDXrayDataGenerator(Sequence):
             img = np.expand_dims(img, axis=2)
             # img = (img / 255.0).astype(np.float32) # Model input will transform
             img_info = self.get_img_info(img_path.name)
-            if self.n_classes == 1:
-                imgaug, imgaug_shape = self.create_augimg(img, img_info)
+            if self.task == 'binary':
+                imgaug, imgaug_shape = self.create_multi_augimg(img, img_info)
                 imgaug_mask = self.get_mask(imgaug, imgaug_shape)
-            elif self.n_classes > 1:
+            elif self.task == 'multi':
                 imgaug, imgaug_shape = self.create_multi_augimg(img, img_info)
                 imgaug_mask = self.create_multi_masks(imgaug, imgaug_shape)
             else:
