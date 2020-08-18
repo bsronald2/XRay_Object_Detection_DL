@@ -3,7 +3,7 @@ import cv2
 from datetime import datetime
 import imageio
 from src.config import labels, dim, hues_labels, n_classes
-
+import imgaug as ia
 
 class Mask:
 
@@ -38,7 +38,6 @@ class Mask:
 
 
     def blending_2D_images(self, img, pred_mask, task='multi'):
-        print(img.shape, pred_mask.shape)
         if task == 'multi':
             pred_color_mask = self.color_masks(pred_mask.squeeze() * 255.0)
         elif 'binary':

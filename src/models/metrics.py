@@ -8,11 +8,10 @@ def iou_metric(y_true_in, y_pred_in, verbose=False):
     This implementation is based on
     src: https://www.kaggle.com/aglotero/another-iou-metric
     """
-    labels = y_true_in
-    y_pred = y_pred_in
-
-    true_objects = 2
-    pred_objects = 2
+    labels = (y_true_in > 0.5).astype(np.uint8)
+    y_pred = (y_pred_in > 0.5).astype(np.uint8)
+    true_objects = len(np.unique(labels))
+    pred_objects = len(np.unique(y_pred))
 
     intersection = np.histogram2d(labels.flatten(), y_pred.flatten(), bins=(true_objects, pred_objects))[0]
 
@@ -78,6 +77,19 @@ def metric_batch(y_true_in, y_pred_in, calc_metric='iou'):
         metrics.append(value)
 
     return np.mean(metrics)
+
+
+def IoULoss(targets, inputs, smooth=1e-6):
+    # flatten label and prediction tensors
+    inputs = K.flatten(inputs)
+    targets = K.flatten(targets)
+
+    intersection = K.sum(targets * inputs)
+    total = K.sum(targets) + K.sum(inputs)
+    union = total - intersection
+
+    IoU = (intersection + smooth) / (union + smooth)
+    return 1 - IoU
 
 # Dice metrics are implemented from the following sources.
 #     https://lars76.github.io/neural-networks/object-detection/losses-for-segmentation/

@@ -1,8 +1,8 @@
 import cv2
 import numpy as np
-from src.config import dim
+from src.config import dim, n_classes
 from src.models.metrics import dice_coef
-
+import imgaug as ia
 
 def img_obj_detection(img_path):
     # Read Image
@@ -40,12 +40,15 @@ def predict_contours_batch(data_generator, mask):
         batch_shape = X.shape[0]
         for i in range(batch_shape):
             # Find contours and create mask
-            thresh = threshold(np.stack((X[i].squeeze(),) * 3, axis=-1).astype(np.uint8))
-            y_pred = morphology_operation(thresh)
+            y_pred = threshold(np.stack((X[i].squeeze(),) * 3, axis=-1).astype(np.uint8))
+            y_pred = morphology_operation(y_pred)
             y_pred = np.expand_dims(y_pred, axis=2)
             # save predict mask over original img
+
             mask.blending_2D_images(X[i], y_pred, 'binary')
             # Calculate dice
+            # ia.imshow(y_exp[i].squeeze())
+            # ia.imshow(y_pred.squeeze())
             dice_result = dice_coef(y_exp[i], y_pred)
             metrics.append(dice_result)
 
@@ -70,7 +73,7 @@ def threshold(img):
     if len(cnts) > 0:
         max_cnt_area = cv2.contourArea(cnts[0])
     print('Max Count Area', max_cnt_area)
-    if max_cnt_area > 10000:
+    if max_cnt_area > 9000:
         _, thresh = cv2.threshold(grey, 37, 255, cv2.THRESH_BINARY_INV)
     else:
         thresh = np.ones(shape=(512, 512), dtype=np.uint8) * 255

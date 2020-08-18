@@ -52,14 +52,18 @@ def main(input_img_path, ann_path, output_pred_path, model_path, is_batch, model
 
 def predict_unet(model, data_generator_test, mask):
     metrics = list()
+    iou = list()
     for X, y_exp in data_generator_test.get_iter():
         y_pred = model.predict(X)
         metrics.append(metric_batch(y_exp, y_pred, calc_metric='dice'))
+        iou.append(metric_batch(y_exp, y_pred, calc_metric='iou'))
         # Save predictions
         mask.blending_batch(X, y_pred)
 
     dice_value = np.mean(metrics)
+    iou_metric = np.mean(iou)
     print("Dice Metric:", dice_value)
+    print("IoU Metric:", iou_metric)
 
 
 def calculate_iou_metric(model, data_generator_test, mask):
